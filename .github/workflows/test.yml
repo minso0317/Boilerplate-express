@@ -1,0 +1,85 @@
+name: example_name # 테스트 이름
+
+on:
+  push:
+    branches:
+      - develop # dev에 push될때 실행
+  pull_request:
+    branches:
+      - develop # dev에 pull request가 생성될때 실행
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15 # postgres 버전 설정
+        ports:
+          - 5432:5432 # postgres 포트 설정
+        env:
+          POSTGRES_DB: test_db # ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: postgres # ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: postgres # ${{ secrets.POSTGRES_PASSWORD }}
+        options: >- # DB가 준비될 때까지 기다리는 설정 (헬스 체크)
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s 
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
+      NODE_ENV: test
+      BASE_URL: http://localhost:3000
+      PORT: 3000
+
+      # JWT 서명을 위한 시크릿 키 (테스트용 더미 값)
+      JWT_SECRET: your-secret-key
+
+      # AWS 관련 설정 - 실제 AWS 리소스를 사용하는 경우에는 Secrets로 값 주입 필요
+      AWS_REGION: ap-northeast-2 # ${{ secrets.AWS_REGION }}
+      AWS_ACCESS_KEY_ID: aws-access-key # ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: aws-secret-access-key # ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_S3_BUCKET_NAME: panda-market # ${{ secrets.AWS_S3_BUCKET_NAME }}
+
+      S3_ENDPOINT: dummy-s3-endpoint
+      IAM_ACCESS_KEY: dummy-access-key
+      IAM_SECRET_ACCESS_KEY: dummy-secret-key
+      SERVER_URL: dummy-server-url
+      SALT: $2b$10$abcdefghij1234567890ABCD # 테스트용 더미 값
+      JWT_ACCESS_TOKEN_SECRET: your-access-token-secret
+      JWT_REFRESH_TOKEN_SECRET: your-refresh-token-secret
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "lts/*" # LTS 버전의 Node.js 사용
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Set up .nev
+        run: echo #"${{ secrets.ENV }}" > .env # 주석 제거 #
+
+      - name: Migrate database
+        run: npm run prisma:migrate # Prisma 마이그레이션 적용 (testdb에 스키마 반영)
+
+      - name: DB Seed
+        run: npm run prisma:seed
+
+      - name: Type Check
+        run: npm run typecheck # TypeScript 타입 검사 수행
+
+      - name: Run **test_file_name** unit tests # unit example-test 이름
+        run: npm run **test_file_name**-unit # unit example-test 실행
+
+      - name: Run **test_file_name** integration tests # integration example-test 이름
+        run: npm run **test_file_name**-int # integration example-test 실행

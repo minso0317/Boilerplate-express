@@ -1,0 +1,30 @@
+name: Deploy to TEST (Production) # 배포 이름 설정
+
+on:
+  push:
+    branches:
+      - main # main에 push할 때
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: # ${{ secrets.EC2_HOST }}
+          username: ec2-user # ec2 username 확인해서 대입
+          key: # ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ec2-user/폴더경로/프로젝트파일 # EC2 인스턴스 내 프로젝트 경로로 진입
+            rm -rf .env
+            git pull origin main # 코드 최신화
+            echo "$ENV" > .env
+            npm install
+            npx prisma migrate deploy
+            npm run build
+            npx tsc-alias -p tsconfig.json
+            pm2 delete 서버이름확대입 || true
+            pm2 start ecosystem.config.js
+            pm2 save
