@@ -3,7 +3,7 @@ name: Deploy to TEST (Production) # 배포 이름 설정
 on:
   push:
     branches:
-      - main # main에 push할 때
+      - branche_name # main에 push할 때(branche_name을 main 또는 해당 branche로 수정)
 
 jobs:
   deploy:
